@@ -41,11 +41,18 @@ public class Display extends javax.swing.JPanel {
 
         for(Airplane a: aircraftList){
             a.speed = 200.0;
-
+            a.heading = 270;
+            
             double distance = (double) (a.speed/3600)*3.0;
             double pxTravelled = (double) distance*this.SCALE;
             
-            a.updateState(a.x+pxTravelled, a.y);
+            double heading = Math.toRadians(a.heading) - 90;
+            
+            double newX = pxTravelled*Math.cos(heading);
+            double newY = pxTravelled*Math.sin(heading);
+            
+            a.updateState(a.x+newX, a.y+newY);
+            System.out.println(newX+", "+newY);
         }
         
         repaint();
@@ -72,7 +79,6 @@ public class Display extends javax.swing.JPanel {
         g2d.drawOval(0-this.getHeight()/2, 0-this.getHeight()/2, this.getHeight(), this.getHeight());
 
         //runway
-        
         g2d.drawLine(0, 0, 20, 0);
         
         //runway extended centerline
