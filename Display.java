@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package radardisplay;
 
 import java.awt.BasicStroke;
@@ -13,49 +8,69 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.Stroke;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import javax.swing.JFrame;
+import javax.swing.Timer;
 
 /**
  *
  * @author Chris
  */
-public class Display extends javax.swing.JPanel {
+public class Display extends javax.swing.JPanel{
     
     private final Color BOUNDARY = new Color(140, 140, 140);
     private final Color VIDEO_MAP = new Color(79, 79, 79); //gray
     private final Color TEXT = new Color(0, 139, 0); //green
     public double SCALE; 
     private ArrayList<Airplane> aircraftList = new ArrayList<>();
+    private final Timer sweepTimer;
 
     public Display(){
         
         this.setBackground(Color.BLACK);
+
         
-        this.aircraftList.add(new Airplane(0, 0));
-        this.aircraftList.add(new Airplane(0, 300));
+        //initial aircraft on display
+        this.aircraftList.add(new Airplane(0, 0, 5000, "FLG3631", "MSP"));
+        this.aircraftList.add(new Airplane(0, 300, 5000, "FDX1544", "MSP"));
+
+        ActionListener radarSweep = (ActionEvent ae) -> {
+            sweep();
+        };        
+        this.sweepTimer = new Timer(3000, radarSweep);
+        sweepTimer.start();
         
     }
     
-    public void sweep() throws InterruptedException{
+    private void sweep() {
 
         for(Airplane a: aircraftList){
             a.speed = 200.0;
-
+            a.heading = 360;
+            
+            a.assignAltitude(50000);
+            a.assignSpeed(200);
+            
             double distance = (double) (a.speed/3600)*3.0;
             double pxTravelled = (double) distance*this.SCALE;
             
-            a.updateState(a.x+pxTravelled, a.y);
+            double heading = Math.toRadians(a.heading) - 90;
+            
+            double newX = pxTravelled*Math.cos(heading);
+            double newY = pxTravelled*Math.sin(heading);
+            
+            a.updateState(a.x+newX, a.y+newY);
         }
         
         repaint();
-        Thread.sleep(3000); //3 seconds
     }
     
     @Override
-    public void paint(Graphics g){
+    public void paintComponent(Graphics g){
         
-        super.paint(g);
+        super.paintComponent(g);
         
         Graphics2D g2d = (Graphics2D) g;
         g2d.setBackground(Color.BLACK);
@@ -72,16 +87,11 @@ public class Display extends javax.swing.JPanel {
         g2d.drawOval(0-this.getHeight()/2, 0-this.getHeight()/2, this.getHeight(), this.getHeight());
 
         //runway
-        
         g2d.drawLine(0, 0, 20, 0);
         
-        //runway extended centerline
-        g2d.setColor(VIDEO_MAP);
-        g2d.setStroke(dashStroke);
-        g2d.drawLine(0, 0, this.getWidth()/-4, 0);
-        g2d.setStroke(defaultStroke);
-
         //range rings
+        g2d.setColor(VIDEO_MAP);
+        g2d.setStroke(defaultStroke);
         int posFactor = 5;
         int dimFactor = 10;
         for(int i=1; i<=9; i++){
@@ -90,6 +100,11 @@ public class Display extends javax.swing.JPanel {
             dimFactor+=10;
         }
         
+        //runway extended centerline
+        g2d.setStroke(dashStroke);
+        g2d.drawLine(0, 0, this.getWidth()/-4, 0);
+        g2d.setStroke(defaultStroke);
+        
         //create fixes
         ArrayList<Fix> fixes = new ArrayList<>();
         fixes.add(new Fix(0, (double)this.getHeight()/-2.25, "COLIN", true)); //north departure gate
@@ -97,47 +112,38 @@ public class Display extends javax.swing.JPanel {
         fixes.add(new Fix((double)this.getHeight()/1.75, -200, "POLAR", false)); //northeast arrival gate
         fixes.add(new Fix((double)this.getHeight()/-1.75, 200, "SHAWN", false)); //southwest arrival gate
         for(Fix f : fixes){
-            f.paint(g2d);
+            f.paintComponent(g2d);
         }
         
         //repaint target symbols
         for(Airplane a: aircraftList){
-            a.paint(g2d);
+            a.paintComponent(g2d);
             
         }
 
     }
 
     public static void main(String[] args) throws InterruptedException{
-        
-        JFrame frame = new JFrame("Radar Display");
-        Display display = new Display();        
-        
-        frame.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-        frame.setUndecorated(true);
-        frame.setExtendedState(MAXIMIZED_BOTH);
-        frame.setResizable(false);
-        frame.setLocationRelativeTo(null);
-        frame.setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-        frame.setBackground(Color.BLACK);
-        
-        frame.add(display);
-        frame.setVisible(true);
-        
 
-        AircraftWindow aircraftWindow = new AircraftWindow();
-        aircraftWindow.setVisible(true);
-        aircraftWindow.setLocation(display.getWidth()-aircraftWindow.getWidth(), frame.getHeight()-aircraftWindow.getHeight());
-        
-        display.SCALE = (double)display.getHeight() / 100.0;
-        
+                JFrame frame = new JFrame("Radar Display");
+                Display display = new Display();        
 
-        
-        while(true){
-            
-            display.sweep();
-        }
-        
+                frame.setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
+                frame.setUndecorated(true);
+                frame.setExtendedState(MAXIMIZED_BOTH);
+                frame.setResizable(false);
+                frame.setLocationRelativeTo(null);
+                frame.setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+                frame.setBackground(Color.BLACK);
+
+                frame.add(display);
+                frame.setVisible(true);
+
+                AircraftWindow aircraftWindow = new AircraftWindow();
+                aircraftWindow.setVisible(true);
+                aircraftWindow.setLocation(display.getWidth()-aircraftWindow.getWidth(), frame.getHeight()-aircraftWindow.getHeight());
+
+                display.SCALE = (double)display.getHeight() / 100.0;
     }
     
 }
