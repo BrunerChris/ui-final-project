@@ -1,14 +1,15 @@
 package radardisplay;
 
 import java.awt.Color;
-import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
-
+import javax.swing.Timer;
 
 /**
  *
@@ -35,24 +36,44 @@ public class Airplane {
     private String departure;
     
     private boolean owned;
-    private boolean landing;
-    private boolean isDeparture;
+    public boolean landing;
+    public boolean isDeparture;
+    public boolean inConflict;
     
+    public final Timer conflictTimer;
+    public final int timerSpeed = 250; //ms
     private final int SYMBOL_SIZE = 8;
     public Color currentColor;
     private final Color DATABLOCK_OWNED = new Color(255, 255, 255); //white
-    private final Color DATABLOCK_ALERT = new Color(255, 0, 0); //red
+    private final Color DATABLOCK_ALERT1 = new Color(255, 0, 0); //red
+    private final Color DATABLOCK_ALERT2 = new Color(152, 0, 0); //dark red
     private final Color DATABLOCK_UNOWNED = new Color(0, 139, 0); //green
     
-    private Image SYMBOL_UNOWNED = Toolkit.getDefaultToolkit().getImage("target_symbol_G.png");
-    private Image SYMBOL_OWNED = Toolkit.getDefaultToolkit().getImage("");
-    private Image SYMBOL_ALERT1 = Toolkit.getDefaultToolkit().getImage("");
-    private Image SYMBOL_ALERT2 = Toolkit.getDefaultToolkit().getImage("");
+    private final Image SYMBOL_UNOWNED = Toolkit.getDefaultToolkit().getImage("target_symbol_G.png");
+    private final Image SYMBOL_OWNED = Toolkit.getDefaultToolkit().getImage("target_symbol_W.png");
+    private final Image SYMBOL_ALERT1 = Toolkit.getDefaultToolkit().getImage("target_symbol_R.png");
+    private final Image SYMBOL_ALERT2 = Toolkit.getDefaultToolkit().getImage("target_symbol_RDark.png");
     public AffineTransform transform = new AffineTransform();
     
     public Image currentSymbol;
     
     public Airplane(int initialX, int initialY, int initAlt, String callsign, String arrival){
+        
+        ActionListener conflictAlert = (ActionEvent ae) -> {
+            
+            if(!this.currentSymbol.equals(this.SYMBOL_ALERT1) || !this.currentColor.equals(this.DATABLOCK_ALERT1)){
+                this.currentSymbol = this.SYMBOL_ALERT2;
+                this.currentColor = this.DATABLOCK_ALERT2;
+            }
+            else if(this.currentSymbol.equals(this.SYMBOL_ALERT2) || this.currentColor.equals(this.DATABLOCK_ALERT2)){
+                this.currentSymbol = this.SYMBOL_ALERT1;
+                this.currentColor = this.DATABLOCK_ALERT1;
+            }
+            
+        };
+        this.conflictTimer = new Timer(this.timerSpeed, conflictAlert);
+        this.conflictTimer.setInitialDelay(0);
+        
         this.currentColor = DATABLOCK_UNOWNED;
         this.currentSymbol = SYMBOL_UNOWNED;
         
@@ -62,6 +83,28 @@ public class Airplane {
         this.callsign = callsign;
         this.arrival = arrival;
         
+    }
+    
+    public void slew(){
+        
+        if(this.owned)
+            this.termTrack();
+        
+        else
+            this.initTrack();
+        
+    }
+    
+    public void initTrack(){
+        this.owned = true;
+        this.currentColor = this.DATABLOCK_OWNED;
+        this.currentSymbol = this.SYMBOL_OWNED;
+    }
+    
+    public void termTrack(){
+        this.owned = false;
+        this.currentColor = this.DATABLOCK_UNOWNED;
+        this.currentSymbol = this.SYMBOL_UNOWNED;
     }
     
     public void assignSpeed(int newSpeed){
@@ -108,6 +151,23 @@ public class Airplane {
     
     public void updateState(double newX, double newY){
         
+        //conflict alerts
+        if(this.inConflict){
+            this.conflictTimer.start();
+        }
+        else{
+            this.conflictTimer.stop();
+            
+            if(this.owned){
+                this.currentColor = this.DATABLOCK_OWNED;
+                this.currentSymbol = this.SYMBOL_OWNED;
+            }
+            else{
+                this.currentColor = this.DATABLOCK_UNOWNED;
+                this.currentSymbol = this.SYMBOL_UNOWNED;
+            }
+        }
+        
         //heading
         if(this.heading != this.assignedHeading)
             this.turn();
@@ -145,8 +205,8 @@ public class Airplane {
         return new Rectangle( (int) this.x, (int) this.y, this.SYMBOL_SIZE, this.SYMBOL_SIZE);
     }
     
-    public Ellipse2D getJRing(){
-        return new Ellipse2D.Double(this.x, this.y, 10*this.SYMBOL_SIZE, 10*this.SYMBOL_SIZE);
+    public Ellipse2D getJRing(int diameter){
+        return new Ellipse2D.Double(this.x, this.y, (10*diameter)*this.SYMBOL_SIZE, (10*diameter)*this.SYMBOL_SIZE);
     }
     
     public String tagLine1(){
@@ -173,7 +233,7 @@ public class Airplane {
 
         g.drawImage(this.currentSymbol, (int)this.x, (int)this.y, 20, 20, null);
 
-        g.setColor(DATABLOCK_UNOWNED);
+        g.setColor(this.currentColor);
         g.drawString(tagLine1(), (int)this.x+35, (int)this.y+10);
         g.drawString(tagLine2(), (int)this.x+35, (int)this.y+25);
         
