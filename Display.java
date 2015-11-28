@@ -10,7 +10,11 @@ import java.awt.RenderingHints;
 import java.awt.Stroke;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.util.ArrayList;
+import java.util.Iterator;
 import javax.swing.JFrame;
 import javax.swing.Timer;
 
@@ -24,28 +28,28 @@ public class Display extends javax.swing.JPanel{
     private final Color VIDEO_MAP = new Color(79, 79, 79); //gray
     private final Color TEXT = new Color(0, 139, 0); //green
     public double SCALE; 
-    private ArrayList<Airplane> aircraftList = new ArrayList<>();
+    private final ArrayList<Airplane> aircraftList = new ArrayList<>();
     private final Timer sweepTimer;
+    public MouseListener slewListener;
 
     public Display(){
         
         this.setBackground(Color.BLACK);
 
-        
         //initial aircraft on display
         this.aircraftList.add(new Airplane(0, 0, 5000, "FLG3631", "MSP"));
         this.aircraftList.add(new Airplane(0, 300, 5000, "FDX1544", "MSP"));
-
+        
         ActionListener radarSweep = (ActionEvent ae) -> {
             sweep();
         };        
         this.sweepTimer = new Timer(3000, radarSweep);
         sweepTimer.start();
-        
+                
     }
     
     private void sweep() {
-
+        
         for(Airplane a: aircraftList){
             a.speed = 200.0;
             a.heading = 360;
@@ -62,6 +66,23 @@ public class Display extends javax.swing.JPanel{
             double newY = pxTravelled*Math.sin(heading);
             
             a.updateState(a.x+newX, a.y+newY);
+            
+            for(int i = this.aircraftList.size(); i==0; i--){
+                Airplane b = this.aircraftList.get(i);
+                //check for conflict alerts
+                if(a.getJRing(6).getBounds().intersects(b.getJRing(6).getBounds()) && Math.abs(a.altitude - b.altitude) < 1000 ){
+                    a.inConflict = b.inConflict = true;
+                }
+                else{
+                    a.inConflict = b.inConflict = false;
+                }
+                //check for collisions
+                if( a.getTargetBounds().intersects(b.getTargetBounds()) && a.altitude == b.altitude){
+                    this.aircraftList.remove(b);
+                    this.aircraftList.remove(a);
+                }
+                
+            }
         }
         
         repaint();
@@ -142,8 +163,21 @@ public class Display extends javax.swing.JPanel{
                 AircraftWindow aircraftWindow = new AircraftWindow();
                 aircraftWindow.setVisible(true);
                 aircraftWindow.setLocation(display.getWidth()-aircraftWindow.getWidth(), frame.getHeight()-aircraftWindow.getHeight());
-
+                
                 display.SCALE = (double)display.getHeight() / 100.0;
+                display.addMouseListener(new MouseAdapter(){
+                    
+                    @Override
+                    public void mousePressed(MouseEvent me){
+                        
+                        //System.out.println( me.getX()-(display.getWidth()/2)+", "+(me.getY()-(display.getHeight()/2)) );
+                        for(Airplane a : display.aircraftList)
+                            if(a.getTargetBounds().contains( me.getX()-(display.getWidth()/2), me.getY()-(display.getHeight()/2) ))
+                                a.slew();
+                        
+                            }
+                    
+                });
     }
     
 }
